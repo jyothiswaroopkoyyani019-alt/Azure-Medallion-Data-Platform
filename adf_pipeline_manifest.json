@@ -1,0 +1,176 @@
+{
+    "name": "pl_medallion_orchestrator",
+    "properties": {
+        "activities": [
+            {
+                "name": "Copy data1",
+                "type": "Copy",
+                "dependsOn": [
+                    {
+                        "activity": "Web1",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [
+                    {
+                        "name": "Source",
+                        "value": "landing-zone/silver-processed/"
+                    },
+                    {
+                        "name": "Destination",
+                        "value": "landing-zone/production-final/daily_transactions.csv"
+                    }
+                ],
+                "typeProperties": {
+                    "source": {
+                        "type": "ParquetSource",
+                        "storeSettings": {
+                            "type": "AzureBlobFSReadSettings",
+                            "recursive": true,
+                            "wildcardFolderPath": "silver-processed",
+                            "wildcardFileName": "part-*.parquet",
+                            "enablePartitionDiscovery": false
+                        },
+                        "formatSettings": {
+                            "type": "ParquetReadSettings"
+                        }
+                    },
+                    "sink": {
+                        "type": "DelimitedTextSink",
+                        "storeSettings": {
+                            "type": "AzureBlobFSWriteSettings",
+                            "copyBehavior": "MergeFiles"
+                        },
+                        "formatSettings": {
+                            "type": "DelimitedTextWriteSettings",
+                            "quoteAllText": true,
+                            "fileExtension": ".txt"
+                        }
+                    },
+                    "enableStaging": false,
+                    "translator": {
+                        "type": "TabularTranslator",
+                        "mappings": [
+                            {
+                                "source": {
+                                    "name": "OrderID",
+                                    "type": "Int16"
+                                },
+                                "sink": {
+                                    "name": "OrderID"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "ItemName",
+                                    "type": "String"
+                                },
+                                "sink": {
+                                    "name": "ItemName"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "Amount",
+                                    "type": "Double"
+                                },
+                                "sink": {
+                                    "name": "Amount"
+                                }
+                            }
+                        ],
+                        "typeConversion": true,
+                        "typeConversionSettings": {
+                            "allowDataTruncation": true,
+                            "treatBooleanAsNumber": false
+                        }
+                    }
+                },
+                "inputs": [
+                    {
+                        "referenceName": "ds_parquet_source",
+                        "type": "DatasetReference"
+                    }
+                ],
+                "outputs": [
+                    {
+                        "referenceName": "DelimitedText1",
+                        "type": "DatasetReference"
+                    }
+                ]
+            },
+            {
+                "name": "Web1",
+                "type": "WebActivity",
+                "dependsOn": [],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "method": "POST",
+                    "headers": {
+                        "Authorization": "Bearer dapi7f476d5d27abd207f5b1f01f394a0675-3"
+                    },
+                    "url": "https://adb-7405604666677399.19.azuredatabricks.net//api/2.1/jobs/run-now",
+                    "body": {
+                        "job_id": 1065479145406376
+                    }
+                }
+            },
+            {
+                "name": "Web_Failure_Alert",
+                "type": "WebActivity",
+                "dependsOn": [
+                    {
+                        "activity": "Web1",
+                        "dependencyConditions": [
+                            "Failed"
+                        ]
+                    },
+                    {
+                        "activity": "Copy data1",
+                        "dependencyConditions": [
+                            "Failed"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "method": "POST",
+                    "headers": {
+                        "Content-Type": "application/json"
+                    },
+                    "url": "https://adb-7405604666677399.19.azuredatabricks.net/browse/folders/498184948049079?o=7405604666677399",
+                    "body": {
+                        "value": "{\n   \"PipelineName\": \"@{pipeline().Pipeline}\",\n   \"RunId\": \"@{pipeline().RunId}\",\n   \"Status\": \"CRITICAL_FAILED\",\n   \"Message\": \"Production data engine run failed unexpectedly. Check ADF Monitor logs immediately.\"\n}",
+                        "type": "Expression"
+                    }
+                }
+            }
+        ],
+        "annotations": [],
+        "lastPublishTime": "2026-10-26T05:08:32Z"
+    },
+    "type": "Microsoft.DataFactory/factories/pipelines"
+}
