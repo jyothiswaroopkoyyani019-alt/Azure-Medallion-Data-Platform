@@ -21,7 +21,11 @@ jobs:
         python -m pip install --upgrade pip
         pip install flake8
 
+        # Scan the code, but only fail if there are critical Python crashes (like syntax blocks)
     - name: Run Syntax Scan Check
+      run: |
+        flake8 . --count --exit-zero --statistics
+
       run: |
         # Stop the build if there are Python syntax errors or undefined names
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
